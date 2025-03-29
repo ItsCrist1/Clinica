@@ -87,18 +87,16 @@ char getChar() {
     #else
     setTerminalState(newt);
     char c = getchar();
+    setTerminalState(oldt);
     if(c == '\033') {
         getchar();
         switch(getchar()) {
-            case 'A': c = 'w';
-            case 'B': c = 's';
-            case 'C': c = 'd';
-            case 'D': c = 'a';
+            case 'A': return 'w';
+            case 'B': return 's';
+            case 'C': return 'd';
+            case 'D': return 'a';
         }
-    } 
-    
-    setTerminalState(oldt);
-    return c == '\n' ? ' ' : c;
+    } return c == '\n' ? ' ' : c;
     #endif
 }
 
