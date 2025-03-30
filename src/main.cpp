@@ -1,9 +1,17 @@
 #include "data.h"
 #include <cstdint>
 #include <vector>
-#include <locale>
 #include <memory>
 #include <algorithm>
+
+#ifndef _WIN32
+#include <locale>
+#else
+#include <windows.h>
+#include <corecrt.h>
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 using u32 = uint32_t;
 using i32 = int32_t;
@@ -12,15 +20,17 @@ using Appointments = std::vector<Appointment>;
 using Entry = std::pair<User, std::shared_ptr<Appointments>>;
 using Entries = std::vector<Entry>;
 
+static const u32 CurrentYear = 2025;
+
 static const size_t MinimumUsernameLength = 5;
 static const size_t MaximumUsernameLength = 20;
 
 static const size_t MinimumPasswordLength = 7;
 static const size_t MaximumPasswordLength = 50;
 
-static const RGB ErrorColor = RGB(255, 0, 0);
-static const RGB SelectedColor = RGB(245,212,66);
-static const RGB UnselectedColor = RGB(112,109,96);
+static const RGB ErrorColor = {255, 0, 0};
+static const RGB SelectedColor = {245, 212, 66};
+static const RGB UnselectedColor = {112, 109, 96};
 
 Entries doctors {
     {User(L"DrSmith", "#Password123", Type::GeneralPractice), {}},
@@ -40,27 +50,19 @@ Entries patients {
 
 void initializeAppointments() {
     static const std::vector<std::vector<Date>> dates {
-        {Date(15, 3, 2025), Date(22, 7, 2025), Date(10, 11, 2025) },
-        {Date(5, 2, 2025), Date(18, 6, 2025), Date(29, 9, 2025)},
-        {Date(12, 4, 2025), Date(7, 8, 2025), Date(3, 12, 2025)},
-        {Date(25, 1, 2025), Date(14, 5, 2025), Date(19, 10, 2025)},
-        {Date(8, 3, 2025), Date(17, 7, 2025), Date(30, 11, 2025)}
+        {Date(15, 3, CurrentYear), Date(22, 7, CurrentYear), Date(10, 11, CurrentYear) },
+        {Date(5, 2, CurrentYear), Date(18, 6, CurrentYear), Date(29, 9, CurrentYear)},
+        {Date(12, 4, CurrentYear), Date(7, 8, CurrentYear), Date(3, 12, CurrentYear)},
+        {Date(25, 1, CurrentYear), Date(14, 5, CurrentYear), Date(19, 10, CurrentYear)},
+        {Date(8, 3, CurrentYear), Date(17, 7, CurrentYear), Date(30, 11, CurrentYear)}
     };
 
     static const std::vector<std::vector<size_t>> patientIndexes {
-        {0, 2, 4},
-        {1, 3, 0},
-        {2, 4, 1},
-        {3, 0, 2},
-        {4, 1, 3}
+        {0, 2, 4}, {1, 3, 0}, {2, 4, 1}, {3, 0, 2}, {4, 1, 3}
     };
 
     static const std::vector<std::vector<size_t>> doctorIndexes {
-        {0, 2, 4},
-        {1, 3, 0},
-        {2, 4, 1},
-        {3, 0, 2},
-        {4, 1, 3}
+        {0, 2, 4}, {1, 3, 0}, {2, 4, 1}, {3, 0, 2}, {4, 1, 3}
     };
 
     const size_t sz = doctors.size();
@@ -70,7 +72,7 @@ void initializeAppointments() {
         doctors[i].second->reserve(sz);
 
         for(size_t j=0; j < dates[i].size(); ++j)
-            doctors[i].second->emplace_back(dates[i][j], doctors[i].first, patients[patientIndexes[i][j]].first);
+            doctors[i].second->emplace_back(dates[i][j], std::make_shared<User>(doctors[i].first), std::make_shared<User>(patients[patientIndexes[i][j]].first));
     }
 
 
@@ -80,7 +82,7 @@ void initializeAppointments() {
         patients[i].second->reserve(sz);
 
         for(size_t j=0; j < dates[i].size(); ++j)
-            patients[i].second->emplace_back(dates[i][j], doctors[doctorIndexes[i][j]].first, patients[i].first);
+            patients[i].second->emplace_back(dates[i][j], std::make_shared<User>(doctors[doctorIndexes[i][j]].first), std::make_shared<User>(patients[i].first));
     }
 }
 
@@ -88,16 +90,134 @@ void initializeAppointments() {
 std::shared_ptr<User> user;
 std::shared_ptr<Appointments> appointments;
 
-void makeAppointment() {
-    // TODO
+
+void modifyDate(Date& date) {
+    u8 idx = 0;
+    
+    while(true) {
+        clearScreen();
+        
+        std::wcout << L"Select which part to modify: "
+        << getCol(idx==0?SelectedColor:UnselectedColor) << (date.day < 10 ? L"0" : L"") << date.day << getCol() << L'.'
+        << getCol(idx==1?SelectedColor:UnselectedColor) << (date.month < 10 ? L"0" : L"") << date.month << getCol() << L'.'
+        << getCol(idx==2?SelectedColor:UnselectedColor) << date.year << getCol();
+        
+        const char c = getChar();
+        
+        if(std::isdigit(c)) {
+            const u8 digit = c - '0';
+            
+            if(digit < 1 || digit > 3) {
+                clearScreen();
+                std::wcout << getCol(ErrorColor) << L"Error: Digit input must be between 1-3\n" << getCol();
+                getCharV();
+                continue;
+            }
+            
+            idx = digit - 1;
+        }
+        
+        switch(c) {
+            case 'w': case 'a': idx = idx == 0 ? 2 : idx - 1; break;
+            case 's': case 'd': idx = idx == 2 ? 0 : idx + 1; break;
+            
+            case 'q': return;
+            
+            default:
+            std::wcout << L"\n\nEnter a new " << (idx==0 ? L"day" : idx==1 ? L"month" : L"year") << L" (between "
+                       << (idx==0 ? L"1-31" : idx==1 ? L"1-12" : std::to_wstring(CurrentYear) + L"-2030") << L"): ";
+            
+            u32 input;
+            std::cin >> input;
+            clearInputBuffer();
+            
+            switch(idx) {
+                case 0:
+                if(!(input > 0 && input <= 31)) {
+                    std::wcout << getCol(ErrorColor) << L"Invalid day input, it must be between 1 and 31" << getCol();
+                    getCharV();
+                    continue;
+                }
+                
+                date.day = input;
+                break;
+                
+                case 1:
+                if(!(input > 0 && input <= 12)) {
+                    std::wcout << getCol(ErrorColor) << L"Invalid month input, it must be between 1 and 12" << getCol();
+                    getCharV();
+                    continue;
+                }
+                
+                date.month = input;
+                break;
+                
+                case 2:
+                if(!(input >= CurrentYear && input <= 2030)) {
+                    std::wcout << getCol(ErrorColor) << L"Invalid day input, it must be between " << CurrentYear << L" and 2030" << getCol();
+                    getCharV();
+                    continue;
+                }
+                
+                date.year = input;
+                break;
+            }
+            break;
+        }
+    }
 }
 
-void modifyAppointment(std::shared_ptr<Appointment> appointment) {
-    // TODO
+std::shared_ptr<User> pickUser(const bool isDoctor) {
+    u8 idx = 0;
+    
+    while(true) {
+        clearScreen();
+        
+        const size_t sz = !isDoctor ? doctors.size() : patients.size();
+        
+        for(size_t i=0; i < sz; ++i) {
+            const User user = !isDoctor ? doctors[i].first : patients[i].first;
+            
+            std::wcout << getCol(idx == i ? SelectedColor : UnselectedColor)
+            << i+1 << L") " << user.name
+            << (!isDoctor ? L": " + getTypeWstr(user.type) : L"")
+            << L'\n' << getCol();
+        }
+        
+        const char c = getChar();
+        
+        if(std::isdigit(c)) {
+            const u8 digit = c - '0';
+            
+            if(digit < 1 || digit > sz) {
+                clearScreen();
+                std::wcout << getCol(ErrorColor) << L"Error: Digit input must be between 1-" << sz << L'\n' << getCol();
+                getCharV();
+                continue;
+            }
+            
+            idx = digit - 1;
+            continue;
+        }
+        
+        switch(c) {
+            case 'w': case 'a': idx = idx == 0 ? static_cast<u8>(sz - 1) : idx - 1; break;
+            case 's': case 'd': idx = idx == sz-1 ? 0 : idx + 1; break;
+            
+            case 'q': return nullptr;
+            
+            default:
+            return std::make_shared<User>((!isDoctor ? doctors[idx] : patients[idx]).first);
+            break;
+        }
+    }
 }
 
-std::shared_ptr<Entry> pickEntry(const bool isDoctor) {
-    return nullptr; // TODO
+void createAppointment() {
+    Date date (0,0, CurrentYear);
+    modifyDate(date);
+
+    appointments->emplace_back(date, pickUser(false), user);
 }
 
 void deleteAppointment(const u8 idx) {
@@ -106,30 +226,30 @@ void deleteAppointment(const u8 idx) {
 
 void mainServiceMenu(const bool isDoctor) {
     u8 idx = 0;
-
+    
     while(true) {
         clearScreen();
-        const size_t appointmentsSize = appointments->size();
+        const size_t sz = appointments->size();
 
         std::wcout << (isDoctor ? L"Doctor" : L"Patient") << " Actions\n\n";
 
-        if(appointmentsSize == 0) {
-            std::wcout << getCol(SelectedColor) << "No appointments made yet, " << (isDoctor ? L"" : L"press n to make one or") << L"press q to quit" << L'\n' << getCol();
+        if(sz == 0) {
+            std::wcout << getCol(SelectedColor) << "No appointments made yet, " << (isDoctor ? L"" : L"press n to make one or ") << L"press q to quit" << L'\n' << getCol();
             const char c = getChar();
 
-            if(!isDoctor && c == 'n') makeAppointment();
+            if(!isDoctor && c == 'n') createAppointment();
             if(c == 'q') return;
 
             continue;
         }
 
-        for(size_t i=0; i < appointmentsSize; ++i) {
+        for(size_t i=0; i < sz; ++i) {
             const Appointment& appointment = (*appointments)[i];
 
-            std::wcout << getCol(idx == i ? SelectedColor : UnselectedColor);
-
-            std::wcout << i << L") " << (isDoctor ? L"Patient:" : L"Doctor: ") << (isDoctor ? appointment.patient.name : appointment.doctor.name)
+            std::wcout << getCol(idx == i ? SelectedColor : UnselectedColor)
+                       << i+1 << L") " << (isDoctor ? L"Patient:" : L"Doctor: ") << (isDoctor ? appointment.patient->name : appointment.doctor->name)
                        << L"\nDate: " << appointment.date.str() 
+                       << (!isDoctor ? L"\nSpecialization: " + getTypeWstr(appointment.doctor->type) : L"")
                        << L"\n\n" << getCol();
         }
 
@@ -138,36 +258,44 @@ void mainServiceMenu(const bool isDoctor) {
         if(std::isdigit(c)) {
             const u8 digit = c - '0';
 
-            if(digit < 1 || digit >= appointmentsSize) {
+            if(digit < 1 || digit > sz) {
                 clearScreen();
-                std::wcout << getCol(ErrorColor) << L"Error: Digit input must be between 1-" << appointmentsSize << L'\n' << getCol();
+                std::wcout << getCol(ErrorColor) << L"Error: Digit input must be between 1-" << sz << L'\n' << getCol();
                 getCharV();
+                continue;
             }
-            break;
+            
+            idx = digit - 1;
         }
     
         switch(c) {
-            case 'w': case 'a': idx = idx == 0 ? appointments->size() - 1 : idx - 1; break;
-            case 's': case 'd': idx = idx == appointments->size()-1 ? 0 : idx + 1; break;
+            case 'w': case 'a': idx = idx == 0 ? static_cast<u8>(sz - 1) : idx - 1; break;
+            case 's': case 'd': idx = idx == sz-1 ? 0 : idx + 1; break;
             
             case 'n':
-            if(!isDoctor) makeAppointment(); 
+            if(!isDoctor) createAppointment();
+            else std::wcout << getCol(ErrorColor) << L"As a doctor, you cannot create new appointment" << getCol();
+            getCharV();
             break;
 
             case 'b':
+            modifyDate(appointments->at(idx).date);
+            break;
 
+            case 'v':
+            if (std::shared_ptr<User> user = pickUser(isDoctor))
+                if(isDoctor) appointments->at(idx).patient = user;
+                else appointments->at(idx).doctor = user;
             break;
     
             case 'q': return;
 
             case 'y':
             deleteAppointment(idx);
-            if(idx == appointmentsSize-1) --idx;
+            if(idx == sz-1) --idx;
             break;
             
-            default:
-
-            break;
+            default: break;
         }
     }
 }
@@ -287,7 +415,12 @@ i32 main() {
     #ifndef _WIN32
     initTerminalStates();
     std::locale::global (std::locale(""));
-	#endif
+	#else
+    if(!_setmode(_fileno(stdout), _O_U16TEXT)) {
+        std::wcerr << L"Unable to set UTF-16 to the terminal, some symbols or colors may not render correctly, do you wish to continue? [y/N] ";
+        if(std::tolower(getChar()) != 'y') return 1;
+    }
+    #endif
 
     u8 idx = 0;
     bool running = true;
@@ -328,11 +461,11 @@ i32 main() {
         }
     }
 
-    cleanup(0);
-
-    std::wcout << getCol(RGB(0, 255, 0)) << L"\n\nGoodbye!" << getCol() << std::endl;
+    
+    std::wcout << getCol(RGB{0, 255, 0}) << L"\n\nGoodbye!" << getCol() << std::endl;
     
 #ifndef _WIN32
+    cleanup(0);
     std::system("reset");
 #endif
 

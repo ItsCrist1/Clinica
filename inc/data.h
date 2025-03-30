@@ -9,6 +9,8 @@ enum class Type {
     Patient
 };
 
+std::wstring getTypeWstr(const Type);
+
 struct Date {
     u8 day, month;
     u32 year;
@@ -30,8 +32,8 @@ struct User {
 
 struct Appointment {
     Date date;
-    User patient, doctor;
+    std::shared_ptr<User> patient, doctor;
 
-    Appointment(const Date, const User&, const User&);
+    Appointment(const Date, std::shared_ptr<User>, std::shared_ptr<User>);
     Appointment();
 };

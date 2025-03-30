@@ -10,13 +10,14 @@ using u32 = uint32_t;
 using i32 = int32_t;
 using u8 = uint8_t;
 
-std::wstring stw(const std::string&);
 
 #ifndef _WIN32
 void initTerminalStates();
 void setTerminalState(const struct termios& s);
 void cleanup(i32);
 #endif
+
+std::wstring stw(const std::string&);
 
 void clearScreen();
 

@@ -10,10 +10,6 @@
 #include <csignal>
 #include <unistd.h>
 
-std::wstring stw(const std::string& s) {
-    return {s.begin(), s.end()};
-}
-
 struct termios oldt, newt;
 
 void initTerminalStates() {
@@ -36,6 +32,11 @@ void cleanup(i32 sig) {
 }
 
 #endif
+
+
+std::wstring stw(const std::string& s) {
+    return {s.begin(), s.end()};
+}
 
 void clearScreen() {
     #ifdef _WIN32
