@@ -1,7 +1,6 @@
 #include "data.h"
 #include <cstdint>
 #include <vector>
-#include <memory>
 #include <algorithm>
 
 #ifndef _WIN32
@@ -343,7 +342,7 @@ void execPatientMenu(const bool hasAccount) {
         }) != patients.end()) {
             std::wcout << getCol(ErrorColor) << L"\nUsername already exists\n" << getCol();
             getCharV();
-        } if(hasAccount) {
+        } else if(hasAccount) {
             const auto result = isValidName(name);
             user = result.first;
             appointments = result.second;
@@ -393,7 +392,7 @@ void execPatientMenu(const bool hasAccount) {
         }) == password.end()) {
             std::wcout << getCol(ErrorColor) << L"\nPassword must contain at least one symbol" << getCol();
             getCharV();
-        } if(hasAccount && password != user->password) {
+        } else if(hasAccount && password != user->password) {
             std::wcout << getCol(ErrorColor) << L"\nInvalid password for user " << user->name << getCol();
             getCharV();
         } else break;
@@ -428,8 +427,9 @@ i32 main() {
     while(running) {
         clearScreen();
 
-        std::wcout << L"Do you have an existing account?";
-        std::wcout << getCol(idx==0?SelectedColor:UnselectedColor) << L"\n1) Yes\n"
+        std::wcout << L"--- Clinic System ---\n\n"
+                   << L"Do you have an existing account?"
+                   << getCol(idx==0?SelectedColor:UnselectedColor) << L"\n1) Yes\n"
                    << getCol(idx==1?SelectedColor:UnselectedColor) << L"2) No\n"
                    << getCol();
 
@@ -468,6 +468,6 @@ i32 main() {
     cleanup(0);
     std::system("reset");
 #endif
-
+    
     return 0;
 }

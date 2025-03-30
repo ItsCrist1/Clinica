@@ -1,6 +1,7 @@
 #pragma once
 #include "utils.h"
 #include <string>
+#include <memory>
 
 enum class Type {
     GeneralPractice, Cardiology, Dermatology,
