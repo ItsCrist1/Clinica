@@ -19,6 +19,8 @@ using Appointments = std::vector<Appointment>;
 using Entry = std::pair<User, std::shared_ptr<Appointments>>;
 using Entries = std::vector<Entry>;
 
+static const std::string SaveFile = "data.dat";
+
 static const u32 CurrentYear = 2025;
 
 static const size_t MinimumUsernameLength = 5;
@@ -31,7 +33,7 @@ static const RGB ErrorColor = {255, 0, 0};
 static const RGB SelectedColor = {245, 212, 66};
 static const RGB UnselectedColor = {112, 109, 96};
 
-Entries doctors {
+static const Entries DefaultDoctors {
     {User(L"DrSmith", "#Password123", Type::GeneralPractice), {}},
     {User(L"DrJohnson", "@securE456", Type::Cardiology), {}},
     {User(L"DrWilliams", "^Doctor789", Type::Pediatrics), {}},
@@ -39,13 +41,18 @@ Entries doctors {
     {User(L"DrDavis", "(Health2024", Type::Orthopedics), {}}
 };
 
-Entries patients {
+static const Entries DefaultPatients {
     {User(L"EmilyClark", "Se@ure123Pass", Type::Patient), {}},
     {User(L"JacobMiller", "P@ssw0rdSafe", Type::Patient), {}},
     {User(L"SophiaBrown", "H3alth#Care2023", Type::Patient), {}},
     {User(L"NoahWilson", "Patient$789Abcd", Type::Patient), {}},
     {User(L"OliviaJones", "M3dical!Records", Type::Patient), {}}
 };
+
+std::shared_ptr<User> user;
+std::shared_ptr<Appointments> appointments;
+
+Entries patients, doctors;
 
 void initializeAppointments() {
     static const std::vector<std::vector<Date>> dates {
@@ -85,10 +92,108 @@ void initializeAppointments() {
     }
 }
 
+void initializeData() {
+    patients = DefaultPatients;
+    doctors = DefaultDoctors;
+    initializeAppointments();
+}
 
-std::shared_ptr<User> user;
-std::shared_ptr<Appointments> appointments;
+void saveDate(std::ofstream& os, const Date& date) {
+    writeBF<u8>(os, date.day);
+    writeBF<u8>(os, date.month);
+    writeBF<u32>(os, date.year);
+}
 
+void savePatient(std::ofstream& os, const User& user) {
+    writeWstr(os, user.name);
+    writeStr(os, user.password);
+}
+
+void saveDoctor(std::ofstream& os, const User& user) {
+    writeWstr(os, user.name);
+    writeStr(os, user.password);
+    writeBF<Type>(os, user.type);
+}
+
+Date loadDate(std::ifstream& is) {
+    return Date (readBF<u8>(is), readBF<u8>(is), readBF<u32>(is));
+}
+
+std::shared_ptr<User> loadDoctor(std::ifstream& is) {
+    return std::make_shared<User> (User(readWstr(is), readStr(is), readBF<Type>(is)));
+}
+
+std::shared_ptr<User> loadPatient(std::ifstream& is) {
+    return std::make_shared<User> (User(readWstr(is), readStr(is)));
+}
+
+std::shared_ptr<Appointments> loadAppointments(std::ifstream& is, const bool isDoctor, std::shared_ptr<User> user) {
+    const size_t sz = readBF<size_t>(is);
+    std::shared_ptr<Appointments> appointments = std::make_shared<Appointments>();
+    appointments->reserve(sz);
+
+    for(size_t i=0; i < sz; ++i) {
+        const Date date = loadDate(is);
+        
+        appointments->emplace_back(date, isDoctor ? user : loadDoctor(is), !isDoctor ? user : loadPatient(is));
+    } return appointments;
+}
+
+void saveData() {
+    std::ofstream os (SaveFile, std::ios::binary);
+    writeBF<size_t>(os, doctors.size());
+
+    for(const Entry& entry : doctors) {
+        saveDoctor(os, entry.first);
+
+        writeBF<size_t>(os, entry.second ? entry.second->size() : 0);
+        if(entry.second) {
+            for (const Appointment& appointment : *entry.second)
+                saveDate(os, appointment.date),
+                savePatient(os, *appointment.patient);
+        }
+    }
+
+    writeBF<size_t>(os, patients.size());
+
+    for(const Entry& entry : patients) {
+        savePatient(os, entry.first);
+
+        writeBF<size_t>(os, entry.second ? entry.second->size() : 0);
+        if(entry.second) {
+            for (const Appointment& appointment : *entry.second)
+                saveDate(os, appointment.date),
+                saveDoctor(os, *appointment.doctor);
+        }
+    }
+
+    os.close();
+}
+
+void loadData() {
+    std::ifstream is (SaveFile, std::ios::binary);
+    size_t sz = readBF<size_t>(is);
+    
+    doctors.clear();
+    doctors.reserve(sz);
+    
+    for(size_t i=0; i < sz; ++i) {
+        std::shared_ptr<User> doctor = loadDoctor(is);
+        doctors.emplace_back(*doctor, loadAppointments(is, true, doctor));
+    }
+    
+    sz = readBF<size_t>(is);
+    
+    patients.clear();
+    patients.reserve(sz);
+    
+    for(size_t i=0; i < sz; ++i) {
+        std::shared_ptr<User> patient = loadPatient(is);
+        patients.emplace_back(*patient, loadAppointments(is, false, patient));
+    }
+    
+    is.close();
+}
 
 void modifyDate(Date& date) {
     u8 idx = 0;
@@ -282,9 +387,10 @@ void mainServiceMenu(const bool isDoctor) {
             break;
 
             case 'v':
-            if (std::shared_ptr<User> user = pickUser(isDoctor))
+            if (std::shared_ptr<User> user = pickUser(isDoctor)) {
                 if(isDoctor) appointments->at(idx).patient = user;
                 else appointments->at(idx).doctor = user;
+            }
             break;
     
             case 'q': return;
@@ -421,8 +527,12 @@ i32 main() {
     }
     #endif
 
+    if(fs::is_regular_file(SaveFile)) loadData();
+    else initializeData(), saveData();
+
     u8 idx = 0;
     bool running = true;
+
     
     while(running) {
         clearScreen();
@@ -461,8 +571,9 @@ i32 main() {
         }
     }
 
+    saveData();
     
-    std::wcout << getCol(RGB{0, 255, 0}) << L"\n\nGoodbye!" << getCol() << std::endl;
+    std::wcout << getCol(RGB{0, 255, 0}) << L"\n\nAll data saved successfully\nGoodbye!" << getCol() << std::endl;
     
 #ifndef _WIN32
     cleanup(0);

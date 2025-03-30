@@ -1,5 +1,6 @@
 #include "utils.h"
 #include <iostream>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -33,6 +34,22 @@ void cleanup(i32 sig) {
 
 #endif
 
+std::wstring getTypeWstr(const Type type) {
+    switch (type) {
+        case Type::GeneralPractice: return L"GeneralPractice";
+        case Type::Cardiology: return L"Cardiology";
+        case Type::Dermatology: return L"Dermatology";
+        case Type::Neurology: return L"Neurology";
+        case Type::Pediatrics: return L"Pediatrics";
+        case Type::Orthopedics: return L"Orthopedics";
+        case Type::Gynecology: return L"Gynecology";
+        case Type::InternalMedicine: return L"InternalMedicine";
+        case Type::Surgery: return L"Surgery";
+        case Type::Patient: return L"Patient";
+        
+        default: return L"Unknown";
+    }
+}
 
 std::wstring stw(const std::string& s) {
     return {s.begin(), s.end()};
@@ -44,6 +61,54 @@ void clearScreen() {
     #else
     std::wcout << L"\033[2J\033[H";
     #endif
+}
+
+template size_t readBF<size_t>(std::ifstream& is);
+template u8 readBF<u8>(std::ifstream& is);
+template u32 readBF<u32>(std::ifstream& is);
+template Type readBF<Type>(std::ifstream& is);
+
+template <typename T>
+T readBF(std::ifstream& is) {
+    T n;
+    is.read(reinterpret_cast<char*>(&n), sizeof(T));
+    return n;
+}
+
+template void writeBF<size_t>(std::ofstream& is, size_t n);
+template void writeBF<u8>(std::ofstream& is, u8 n);
+template void writeBF<u32>(std::ofstream& is, u32 n);
+template void writeBF<Type>(std::ofstream& is, Type n);
+
+template <typename T>
+void writeBF(std::ofstream& os, T n) {
+    os.write(reinterpret_cast<char*>(&n), sizeof(T));
+}
+
+void writeStr(std::ofstream& os, const std::string& str) {
+    size_t size = str.size();
+    writeBF(os, size);
+    os.write(str.data(), size);
+}
+
+std::string readStr(std::ifstream& is) {
+    size_t size = readBF<size_t>(is);
+    std::string str(size, ' ');
+    is.read(&str[0], size);
+    return str;
+}
+
+void writeWstr(std::ofstream& os, const std::wstring& wstr) {
+    size_t size = wstr.size();
+    writeBF(os, size);
+    os.write(reinterpret_cast<const char*>(wstr.data()), size * sizeof(wchar_t));
+}
+
+std::wstring readWstr(std::ifstream& is) {
+    size_t size = readBF<size_t>(is);
+    std::wstring wstr(size, L' ');
+    is.read(reinterpret_cast<char*>(wstr.data()), size * sizeof(wchar_t));
+    return wstr;
 }
 
 RGB::RGB(u8 r, u8 g, u8 b) : r(r), g(g), b(b) {}

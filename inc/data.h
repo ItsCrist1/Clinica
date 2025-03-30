@@ -3,15 +3,6 @@
 #include <string>
 #include <memory>
 
-enum class Type {
-    GeneralPractice, Cardiology, Dermatology,
-    Neurology, Pediatrics, Orthopedics,
-    Gynecology, InternalMedicine, Surgery,
-    Patient
-};
-
-std::wstring getTypeWstr(const Type);
-
 struct Date {
     u8 day, month;
     u32 year;
