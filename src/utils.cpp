@@ -63,8 +63,8 @@ void clearScreen() {
     #endif
 }
 
-template size_t readBF<size_t>(std::ifstream& is);
 template u8 readBF<u8>(std::ifstream& is);
+template wchar_t readBF<wchar_t>(std::ifstream& is);
 template u32 readBF<u32>(std::ifstream& is);
 template Type readBF<Type>(std::ifstream& is);
 
@@ -75,8 +75,8 @@ T readBF(std::ifstream& is) {
     return n;
 }
 
-template void writeBF<size_t>(std::ofstream& is, size_t n);
 template void writeBF<u8>(std::ofstream& is, u8 n);
+template void writeBF<wchar_t>(std::ofstream& is, wchar_t n);
 template void writeBF<u32>(std::ofstream& is, u32 n);
 template void writeBF<Type>(std::ofstream& is, Type n);
 
@@ -86,28 +86,40 @@ void writeBF(std::ofstream& os, T n) {
 }
 
 void writeStr(std::ofstream& os, const std::string& str) {
-    size_t size = str.size();
-    writeBF(os, size);
-    os.write(str.data(), size);
+    u32 size = str.size();
+    
+    std::ofstream ts ("test.txt", std::ios::app);
+    ts << size << '\n';
+    ts.close();
+
+    writeBF<u32>(os, size);
+    for(const char c : str) writeBF<u8>(os, c);
 }
 
 std::string readStr(std::ifstream& is) {
-    size_t size = readBF<size_t>(is);
-    std::string str(size, ' ');
-    is.read(&str[0], size);
+    u32 size = readBF<u32>(is);
+
+    std::ofstream ts ("test_2.txt", std::ios::app);
+    ts << size << '\n';
+    ts.close();
+
+    std::string str (size, ' ');
+    for(char& c : str) c = readBF<u8>(is);
     return str;
 }
 
 void writeWstr(std::ofstream& os, const std::wstring& wstr) {
-    size_t size = wstr.size();
-    writeBF(os, size);
-    os.write(reinterpret_cast<const char*>(wstr.data()), size * sizeof(wchar_t));
+    u32 size = wstr.size();
+    
+    writeBF<u32>(os, size);
+    for(const wchar_t wc : wstr) writeBF<wchar_t>(os, wc);
 }
 
 std::wstring readWstr(std::ifstream& is) {
-    size_t size = readBF<size_t>(is);
+    u32 size = readBF<u32>(is);
+
     std::wstring wstr(size, L' ');
-    is.read(reinterpret_cast<char*>(wstr.data()), size * sizeof(wchar_t));
+    for(wchar_t& wc : wstr) wc = readBF<wchar_t>(is);
     return wstr;
 }
 
@@ -116,7 +128,7 @@ RGB::RGB(u8 c) : r(c), g(c), b(c) {}
 
 std::wstring getCol(const RGB rgb) {
     std::wstringstream wss;
-    wss << L"\033[38;2;" << static_cast<int>(rgb.r) << L';' << static_cast<int>(rgb.g) << L';' << static_cast<int>(rgb.b) << L'm';
+    wss << L"\033[38;2;" << static_cast<u32>(rgb.r) << L';' << static_cast<u32>(rgb.g) << L';' << static_cast<u32>(rgb.b) << L'm';
     return wss.str();
 }
 

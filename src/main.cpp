@@ -23,11 +23,11 @@ static const std::string SaveFile = "data.dat";
 
 static const u32 CurrentYear = 2025;
 
-static const size_t MinimumUsernameLength = 5;
-static const size_t MaximumUsernameLength = 20;
+static const u32 MinimumUsernameLength = 5;
+static const u32 MaximumUsernameLength = 20;
 
-static const size_t MinimumPasswordLength = 7;
-static const size_t MaximumPasswordLength = 50;
+static const u32 MinimumPasswordLength = 7;
+static const u32 MaximumPasswordLength = 50;
 
 static const RGB ErrorColor = {255, 0, 0};
 static const RGB SelectedColor = {245, 212, 66};
@@ -63,31 +63,31 @@ void initializeAppointments() {
         {Date(8, 3, CurrentYear), Date(17, 7, CurrentYear), Date(30, 11, CurrentYear)}
     };
 
-    static const std::vector<std::vector<size_t>> patientIndexes {
+    static const std::vector<std::vector<u32>> patientIndexes {
         {0, 2, 4}, {1, 3, 0}, {2, 4, 1}, {3, 0, 2}, {4, 1, 3}
     };
 
-    static const std::vector<std::vector<size_t>> doctorIndexes {
+    static const std::vector<std::vector<u32>> doctorIndexes {
         {0, 2, 4}, {1, 3, 0}, {2, 4, 1}, {3, 0, 2}, {4, 1, 3}
     };
 
-    const size_t sz = doctors.size();
+    const u32 sz = doctors.size();
 
-    for(size_t i=0; i < sz; ++i) {
+    for(u32 i=0; i < sz; ++i) {
         doctors[i].second = std::make_shared<Appointments>();
         doctors[i].second->reserve(sz);
 
-        for(size_t j=0; j < dates[i].size(); ++j)
+        for(u32 j=0; j < dates[i].size(); ++j)
             doctors[i].second->emplace_back(dates[i][j], std::make_shared<User>(doctors[i].first), std::make_shared<User>(patients[patientIndexes[i][j]].first));
     }
 
 
-    for(size_t i=0; i < sz; ++i) {
+    for(u32 i=0; i < sz; ++i) {
         patients[i].second = std::make_shared<Appointments>();
 
         patients[i].second->reserve(sz);
 
-        for(size_t j=0; j < dates[i].size(); ++j)
+        for(u32 j=0; j < dates[i].size(); ++j)
             patients[i].second->emplace_back(dates[i][j], std::make_shared<User>(doctors[doctorIndexes[i][j]].first), std::make_shared<User>(patients[i].first));
     }
 }
@@ -128,11 +128,11 @@ std::shared_ptr<User> loadPatient(std::ifstream& is) {
 }
 
 std::shared_ptr<Appointments> loadAppointments(std::ifstream& is, const bool isDoctor, std::shared_ptr<User> user) {
-    const size_t sz = readBF<size_t>(is);
+    const u32 sz = readBF<u32>(is);
     std::shared_ptr<Appointments> appointments = std::make_shared<Appointments>();
     appointments->reserve(sz);
 
-    for(size_t i=0; i < sz; ++i) {
+    for(u32 i=0; i < sz; ++i) {
         const Date date = loadDate(is);
         
         appointments->emplace_back(date, isDoctor ? user : loadDoctor(is), !isDoctor ? user : loadPatient(is));
@@ -141,12 +141,12 @@ std::shared_ptr<Appointments> loadAppointments(std::ifstream& is, const bool isD
 
 void saveData() {
     std::ofstream os (SaveFile, std::ios::binary);
-    writeBF<size_t>(os, doctors.size());
+    writeBF<u32>(os, doctors.size());
 
     for(const Entry& entry : doctors) {
         saveDoctor(os, entry.first);
 
-        writeBF<size_t>(os, entry.second ? entry.second->size() : 0);
+        writeBF<u32>(os, entry.second ? entry.second->size() : 0);
         if(entry.second) {
             for (const Appointment& appointment : *entry.second)
                 saveDate(os, appointment.date),
@@ -154,12 +154,12 @@ void saveData() {
         }
     }
 
-    writeBF<size_t>(os, patients.size());
+    writeBF<u32>(os, patients.size());
 
     for(const Entry& entry : patients) {
         savePatient(os, entry.first);
 
-        writeBF<size_t>(os, entry.second ? entry.second->size() : 0);
+        writeBF<u32>(os, entry.second ? entry.second->size() : 0);
         if(entry.second) {
             for (const Appointment& appointment : *entry.second)
                 saveDate(os, appointment.date),
@@ -172,22 +172,22 @@ void saveData() {
 
 void loadData() {
     std::ifstream is (SaveFile, std::ios::binary);
-    size_t sz = readBF<size_t>(is);
+    u32 sz = readBF<u32>(is);
     
     doctors.clear();
     doctors.reserve(sz);
     
-    for(size_t i=0; i < sz; ++i) {
+    for(u32 i=0; i < sz; ++i) {
         std::shared_ptr<User> doctor = loadDoctor(is);
         doctors.emplace_back(*doctor, loadAppointments(is, true, doctor));
     }
     
-    sz = readBF<size_t>(is);
+    sz = readBF<u32>(is);
     
     patients.clear();
     patients.reserve(sz);
     
-    for(size_t i=0; i < sz; ++i) {
+    for(u32 i=0; i < sz; ++i) {
         std::shared_ptr<User> patient = loadPatient(is);
         patients.emplace_back(*patient, loadAppointments(is, false, patient));
     }
@@ -277,9 +277,9 @@ std::shared_ptr<User> pickUser(const bool isDoctor) {
     while(true) {
         clearScreen();
         
-        const size_t sz = !isDoctor ? doctors.size() : patients.size();
+        const u32 sz = !isDoctor ? doctors.size() : patients.size();
         
-        for(size_t i=0; i < sz; ++i) {
+        for(u32 i=0; i < sz; ++i) {
             const User user = !isDoctor ? doctors[i].first : patients[i].first;
             
             std::wcout << getCol(idx == i ? SelectedColor : UnselectedColor)
@@ -333,7 +333,7 @@ void mainServiceMenu(const bool isDoctor) {
     
     while(true) {
         clearScreen();
-        const size_t sz = appointments->size();
+        const u32 sz = appointments->size();
 
         std::wcout << (isDoctor ? L"Doctor" : L"Patient") << " Actions\n\n";
 
@@ -347,7 +347,7 @@ void mainServiceMenu(const bool isDoctor) {
             continue;
         }
 
-        for(size_t i=0; i < sz; ++i) {
+        for(u32 i=0; i < sz; ++i) {
             const Appointment& appointment = (*appointments)[i];
 
             std::wcout << getCol(idx == i ? SelectedColor : UnselectedColor)
@@ -438,7 +438,7 @@ void execPatientMenu(const bool hasAccount) {
         name = stw(temp);
         clearInputBuffer();
 
-        if(const size_t sz=name.length(); !(sz >= MinimumUsernameLength && sz <= MaximumUsernameLength)) {
+        if(const u32 sz=name.length(); !(sz >= MinimumUsernameLength && sz <= MaximumUsernameLength)) {
             std::wcout << getCol(ErrorColor) << L"\nInvalid username length " << getCol() << L"(Must be between "
                        << MinimumUsernameLength << L'-' << MaximumUsernameLength 
                        << L" characters)" << getCol();
@@ -473,7 +473,7 @@ void execPatientMenu(const bool hasAccount) {
         std::cin >> password;
         clearInputBuffer();
 
-        if(const size_t sz=password.length(); !(sz >= MinimumPasswordLength && sz <= MaximumPasswordLength)) {
+        if(const u32 sz=password.length(); !(sz >= MinimumPasswordLength && sz <= MaximumPasswordLength)) {
             std::wcout << getCol(ErrorColor) << L"\nInvalid password length " << getCol() << L"(Must be between "
                        << MinimumPasswordLength << L'-' << MaximumPasswordLength 
                        << L" characters)" << getCol();
