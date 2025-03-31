@@ -515,8 +515,6 @@ void execPatientMenu(const bool hasAccount) {
 }
 
 i32 main() {
-    initializeAppointments();
-
     #ifndef _WIN32
     initTerminalStates();
     std::locale::global (std::locale(""));
