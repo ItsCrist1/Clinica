@@ -116,15 +116,25 @@ void saveDoctor(std::ofstream& os, const User& user) {
 }
 
 Date loadDate(std::ifstream& is) {
-    return Date (readBF<u8>(is), readBF<u8>(is), readBF<u32>(is));
+    const u8 day = readBF<u8>(is);
+    const u8 month = readBF<u8>(is);
+    const u32 year = readBF<u32>(is);
+
+    return Date (day, month, year);
 }
 
 std::shared_ptr<User> loadDoctor(std::ifstream& is) {
-    return std::make_shared<User> (User(readWstr(is), readStr(is), readBF<Type>(is)));
+    const std::wstring name = readWstr(is);
+    const std::string password = readStr(is);
+    const Type type = readBF<Type>(is);
+    
+    return std::make_shared<User> (User (name, password, type));
 }
 
 std::shared_ptr<User> loadPatient(std::ifstream& is) {
-    return std::make_shared<User> (User(readWstr(is), readStr(is)));
+    const std::wstring name = readWstr(is);
+    const std::string password = readStr(is);
+    return std::make_shared<User> (User (name, password));
 }
 
 std::shared_ptr<Appointments> loadAppointments(std::ifstream& is, const bool isDoctor, std::shared_ptr<User> user) {
@@ -380,18 +390,24 @@ void mainServiceMenu(const bool isDoctor) {
             if(!isDoctor) createAppointment();
             else std::wcout << getCol(ErrorColor) << L"As a doctor, you cannot create new appointment" << getCol();
             getCharV();
+            saveData();
             break;
 
             case 'b':
             modifyDate(appointments->at(idx).date);
+            saveData();
             break;
 
             case 'v':
             if (std::shared_ptr<User> user = pickUser(isDoctor)) {
                 if(isDoctor) appointments->at(idx).patient = user;
                 else appointments->at(idx).doctor = user;
+                
+                saveData();
             }
             break;
+
+            case 'g': saveData(); break;
     
             case 'q': return;
 
@@ -403,10 +419,6 @@ void mainServiceMenu(const bool isDoctor) {
             default: break;
         }
     }
-}
-
-void mainPatientMenu() {
-
 }
 
 const std::pair<std::shared_ptr<User>, std::shared_ptr<Appointments>> isValidName(const std::wstring& name) {
@@ -422,6 +434,15 @@ const std::pair<std::shared_ptr<User>, std::shared_ptr<Appointments>> isValidNam
            (patient == patients.end() ? std::make_pair(nullptr, nullptr)
            : std::make_pair(std::make_shared<User>(patient->first), patient->second)) 
            : std::make_pair(std::make_shared<User>(doctor->first), doctor->second);
+}
+
+bool showPasswordError(const bool condition, const std::wstring& errorMessage) {
+    if(!condition) return false;
+
+    std::wcout << getCol(ErrorColor) << L'\n' << errorMessage << getCol();
+
+    getCharV();
+    return true;
 }
 
 void execPatientMenu(const bool hasAccount) {
@@ -477,31 +498,31 @@ void execPatientMenu(const bool hasAccount) {
             std::wcout << getCol(ErrorColor) << L"\nInvalid password length " << getCol() << L"(Must be between "
                        << MinimumPasswordLength << L'-' << MaximumPasswordLength 
                        << L" characters)" << getCol();
+
             getCharV();
-        } else if(std::find_if(password.begin(), password.end(), [](const char c) { 
-            return std::islower(c);
-        }) == password.end()) {
-            std::wcout << getCol(ErrorColor) << L"\nPassword must contain at least one lowercase letter" << getCol();
-            getCharV();
-        } else if(std::find_if(password.begin(), password.end(), [](const char c) { 
-            return std::isupper(c);
-        }) == password.end()) {
-            std::wcout << getCol(ErrorColor) << L"\nPassword must contain at least one uppercase letter" << getCol();
-            getCharV();
-        } else if(std::find_if(password.begin(), password.end(), [](const char c) { 
-            return std::isdigit(c);
-        }) == password.end()) {
-            std::wcout << getCol(ErrorColor) << L"\nPassword must contain at least one digit" << getCol();
-            getCharV();
-        } else if(std::find_if(password.begin(), password.end(), [](const char c) { 
-            return !isalnum(c) && !std::isspace(c);
-        }) == password.end()) {
-            std::wcout << getCol(ErrorColor) << L"\nPassword must contain at least one symbol" << getCol();
-            getCharV();
+            continue;
         } else if(hasAccount && password != user->password) {
             std::wcout << getCol(ErrorColor) << L"\nInvalid password for user " << user->name << getCol();
+
             getCharV();
-        } else break;
+            continue;
+        } 
+        
+        bool hasLower = false, hasUpper = false, hasDigit = false, hasSymbol = false;
+
+        for(const char c : password)
+            if(!hasLower && std::islower(c)) hasLower = true;
+            else if(!hasUpper && std::isupper(c)) hasUpper = true;
+            else if(!hasDigit && std::isdigit(c)) hasDigit = true;
+            else if(!hasSymbol && !isalnum(c) && !std::isspace(c)) hasSymbol = true;
+
+        if(showPasswordError(!hasLower, L"Password must contain at least one lowercase letter") ||
+           showPasswordError(!hasUpper, L"Password must contain at least one uppercase letter") ||
+           showPasswordError(!hasDigit, L"Password must contain at least one digit") ||
+           showPasswordError(!hasSymbol, L"Password must contain at least one symbol"))
+           continue;
+
+        break;
     }
 
     if(!hasAccount) {
@@ -570,7 +591,6 @@ i32 main() {
     }
 
     saveData();
-    
     std::wcout << getCol(RGB{0, 255, 0}) << L"\n\nAll data saved successfully\nGoodbye!" << getCol() << std::endl;
     
 #ifndef _WIN32
