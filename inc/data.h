@@ -8,6 +8,7 @@ struct Date {
     u32 year;
 
     Date(const u8, const u8, const u32);
+    Date();
     std::wstring str() const;
 
     Date& operator=(const Date&);
