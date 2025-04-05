@@ -20,6 +20,7 @@ struct User {
     Type type;
 
     User(const std::wstring&, const std::string&, const Type type = Type::Patient);
+    User(const User& other) = default;
 };
 
 

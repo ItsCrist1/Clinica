@@ -87,10 +87,6 @@ void writeBF(std::ofstream& os, T n) {
 
 void writeStr(std::ofstream& os, const std::string& str) {
     u32 size = str.size();
-    
-    std::ofstream ts ("test.txt", std::ios::app);
-    ts << size << '\n';
-    ts.close();
 
     writeBF<u32>(os, size);
     for(const char c : str) writeBF<u8>(os, c);
@@ -98,10 +94,6 @@ void writeStr(std::ofstream& os, const std::string& str) {
 
 std::string readStr(std::ifstream& is) {
     u32 size = readBF<u32>(is);
-
-    std::ofstream ts ("test_2.txt", std::ios::app);
-    ts << size << '\n';
-    ts.close();
 
     std::string str (size, ' ');
     for(char& c : str) c = readBF<u8>(is);
