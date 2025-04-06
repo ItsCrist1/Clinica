@@ -13,4 +13,5 @@ add_executable(clinic
                src/utils.cpp
                src/data.cpp
                src/main.cpp
-)
+               src/clinic.cpp
+ "inc/clinic.h" "src/clinic.cpp" "inc/serializer.h" "src/serializer.cpp")

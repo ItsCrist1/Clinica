@@ -26,8 +26,8 @@ struct User {
 
 struct Appointment {
     Date date;
-    std::shared_ptr<User> patient, doctor;
+    u32 patientIdx, doctorIdx;
 
-    Appointment(const Date, std::shared_ptr<User>, std::shared_ptr<User>);
+    Appointment(const Date, const u32, const u32);
     Appointment();
 };
