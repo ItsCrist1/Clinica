@@ -95,29 +95,53 @@ void Clinic::modifyDate(Date& date) const {
     }
 }
 
-std::pair<std::shared_ptr<User>, u32> Clinic::pickUser(const bool isDoctor) const {
+std::pair<std::shared_ptr<User>, u32> Clinic::pickUser(const bool isDoctor, const Date& date) const {
     u8 idx = 0;
+
+    std::vector<User> freeDoctors;
+    
+    if(!isDoctor) {
+        const u32 sz = doctors.size();
+
+        std::vector<bool> freeDoctorFlags (sz, true);
+        
+        for(std::shared_ptr<Appointment> appointment : appointments)
+            if(appointment->date == date) 
+                freeDoctorFlags[appointment->doctorIdx] = false;
+        
+        freeDoctors.reserve(sz);
+        for(u32 i=0; i < sz; ++i) {
+            if(freeDoctorFlags[i])
+                freeDoctors.push_back(doctors[i]);
+        }
+    }
+
+    const u32 fdsz = freeDoctors.size();
 
     while (true) {
         clearScreen();
 
         const u32 sz = !isDoctor ? doctors.size() : patients.size();
 
-        for (u32 i=0; i < sz; ++i) {
-            const User user = !isDoctor ? doctors[i] : patients[i];
+        if(isDoctor)
+            for (u32 i=0; i < sz; ++i)
+                std::wcout << (idx==i ? SelectedColor : UnselectedColor)
+                           << i + 1 << L") " << patients[i].name
+                           << L'\n' << getCol();
 
-            std::wcout << (idx == i ? SelectedColor : UnselectedColor)
-                << i + 1 << L") " << user.name
-                << (!isDoctor ? L": " + getTypeWstr(user.type) : L"")
-                << L'\n' << getCol();
-        }
+        else
+            for(u32 i=0; i < fdsz; ++i)
+                std::wcout << (idx==i ? SelectedColor : UnselectedColor)
+                           << i + 1 << L") " << freeDoctors[i].name
+                           << L"\nSpecialization: " << getTypeWstr(freeDoctors[i].type)
+                           << L'\n' << getCol();
 
         const char c = getChar();
 
         if (std::isdigit(c)) {
             const u8 digit = c - '0';
 
-            if (digit < 1 || digit > sz) {
+            if (digit < 1 || digit > (isDoctor ? sz : fdsz)) {
                 clearScreen();
                 std::wcout << ErrorColor << L"Error: Digit input must be between 1-" << sz << L'\n' << getCol();
                 getCharV();
@@ -129,23 +153,28 @@ std::pair<std::shared_ptr<User>, u32> Clinic::pickUser(const bool isDoctor) cons
         }
 
         switch (c) {
-            case 'w': case 'a': idx = idx == 0 ? static_cast<u8>(sz - 1) : idx - 1; break;
-            case 's': case 'd': idx = idx == sz - 1 ? 0 : idx + 1; break;
+            case 'w': case 'a': idx = idx == 0 ? static_cast<u8>((isDoctor ? sz : fdsz) - 1) : idx - 1; break;
+            case 's': case 'd': idx = idx == (isDoctor ? sz : fdsz) - 1 ? 0 : idx + 1; break;
 
             case 'q': return std::make_pair(nullptr, 0);
 
             default:
-            return std::make_pair(std::make_shared<User>(!isDoctor ? doctors[idx] : patients[idx]), idx);
+            if (isDoctor)
+                return std::make_pair(std::make_shared<User>(patients[idx]), idx);
+            else
+                return std::make_pair(std::make_shared<User>(freeDoctors[idx]), std::distance(doctors.begin(), 
+                       std::find_if(doctors.begin(), doctors.end(), 
+                       [&freeDoctors, idx](const User& doctor) { return doctor.name == freeDoctors[idx].name; })));
             break;
         }
     }
 }
 
 void Clinic::createAppointment() {
-    Date date(0, 0, CurrentYear);
+    Date date (0, 0, CurrentYear);
     modifyDate(date);
 
-    std::shared_ptr<Appointment> appointment = std::make_shared<Appointment>(date, pickUser(false).second, CurrentIdx);
+    std::shared_ptr<Appointment> appointment = std::make_shared<Appointment>(date, pickUser(false, date).second, CurrentIdx);
 
     appointments.push_back(appointment);
     CurrentAppointments.push_back(appointment);

@@ -12,6 +12,9 @@ struct Date {
     std::wstring str() const;
 
     Date& operator=(const Date&);
+    bool operator==(const Date&);
+
+    static const Date Default;
 };
 
 struct User {

@@ -50,7 +50,7 @@ class Clinic {
 	void initializeData();
 	void fetchAppointments(const bool);
 	void modifyDate(Date&) const;
-	std::pair<std::shared_ptr<User>, u32> pickUser(const bool) const;
+	std::pair<std::shared_ptr<User>, u32> pickUser(const bool, const Date& date = Date::Default) const;
 	void createAppointment();
 	void deleteAppointment(const u8);
 	void mainServiceMenu(const bool);
