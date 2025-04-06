@@ -1,5 +1,6 @@
 #pragma once
 #include "data.h"
+#include <vector>
 
 class Serializer {
 	const std::string SaveFile;

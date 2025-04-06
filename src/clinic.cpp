@@ -1,4 +1,5 @@
 #include "clinic.h"
+#include <algorithm>
 
 void Clinic::saveData() const {
 	serializer.SaveData(doctors, patients, appointments);
